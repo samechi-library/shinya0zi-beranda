@@ -1,1 +1,0 @@
-# shinya0zi-beranda

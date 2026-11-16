@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#040711">
+<title>深夜0時のベランダ園芸</title>
+<style>
+  :root {
+    --bg-sky-top: #040711;
+    --bg-sky-bottom: #162240;
+    --panel-bg: rgba(15, 23, 42, 0.9);
+    --panel-border: rgba(148, 163, 184, 0.25);
+    --text-main: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent-moon: #fde047;
+    --accent-water: #38bdf8;
+    --accent-leaf: #4ade80;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    background: #040711;
+    color: var(--text-main);
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* 認証ゲート画面 */
+  #auth-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: radial-gradient(circle at 75% 20%, #1e293b 0%, #060a17 65%, #040711 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    padding-top: calc(20px + env(safe-area-inset-top));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #auth-screen.hidden { display: none; }
+
+  .auth-card {
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 18px;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 26px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+  }
+  .auth-title { text-align: center; margin-bottom: 16px; }
+  .auth-title h2 { font-size: 1.25rem; color: #fef9c3; }
+  .auth-title p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+  .auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: #090e1a;
+    padding: 4px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .auth-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 9px;
+    border-radius: 7px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auth-tab.active { background: #1e293b; color: #fff; }
+
+  .auth-field { margin-bottom: 13px; }
+  .auth-field label { display: block; font-size: 0.78rem; color: #cbd5e1; margin-bottom: 5px; }
+  .auth-field input {
+    width: 100%;
+    background: #020617;
+    border: 1px solid #334155;
+    color: #fff;
+    border-radius: 10px;
+    padding: 11px 12px;
+    font-size: 16px;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .auth-field input:focus { outline: none; border-color: #38bdf8; }
+
+  .auth-submit-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .auth-submit-btn:disabled { opacity: 0.55; }
+  .auth-error { color: #fca5a5; font-size: 0.8rem; margin-top: 10px; min-height: 1.2em; text-align: center; }
+
+  /* メインゲーム画面 */
+  #app {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: row;
+    background: linear-gradient(180deg, var(--bg-sky-top) 0%, var(--bg-sky-bottom) 70%, #1e293b 100%);
+    transition: background 1.5s ease;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  #app.mode-midnight { --bg-sky-top: #040711; --bg-sky-bottom: #111d3a; }
+  #app.mode-day { --bg-sky-top: #38bdf8; --bg-sky-bottom: #bae6fd; }
+  #app.mode-evening { --bg-sky-top: #1e1b4b; --bg-sky-bottom: #9a3412; }
+
+  .left-stage {
+    flex: 1.35;
+    min-width: 0;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+
+  #scene-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .plant-sway-0 { transform-origin: 145px 285px; animation: sway 5.2s ease-in-out infinite; }
+  .plant-sway-1 { transform-origin: 300px 285px; animation: sway 4.7s ease-in-out infinite; }
+  .plant-sway-2 { transform-origin: 455px 285px; animation: sway 5.6s ease-in-out infinite; }
+  @keyframes sway {
+    0%, 100% { transform: rotate(-1.4deg); }
+    50% { transform: rotate(1.4deg); }
+  }
+
+  .pot-clickable { cursor: pointer; }
+  .visitor-clickable { cursor: pointer; animation: visitorFloat 3s ease-in-out infinite; }
+  @keyframes visitorFloat {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-3px); }
+  }
+
+  .message-overlay {
+    position: relative;
+    z-index: 10;
+    margin: 14px 18px;
+    padding: 11px 16px;
+    background: rgba(10, 15, 28, 0.85);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.45);
+  }
+
+  .right-sidebar {
+    flex: 1;
+    max-width: 440px;
+    min-width: 320px;
+    height: 100%;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 14px 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    z-index: 15;
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .player-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    color: #93c5fd;
+    margin-bottom: 2px;
+  }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; }
+  .sync-dot.saving { background: #facc15; }
+
+  .clock-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex-wrap: wrap; }
+  .clock-time { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+
+  .badge-midnight {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(253, 224, 71, 0.18);
+    color: var(--accent-moon);
+    border: 1px solid rgba(253, 224, 71, 0.5);
+  }
+  .badge-normal {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.8);
+    color: #cbd5e1;
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+
+  .header-btns { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+  .icon-btn {
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid var(--panel-border);
+    color: var(--text-main);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .pot-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 7px;
+    margin: 10px 0 6px;
+  }
+  .pot-tab {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    color: var(--text-muted);
+    border-radius: 9px;
+    padding: 8px 4px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-align: center;
+  }
+  .pot-tab.active {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: #38bdf8;
+    color: #fff;
+    font-weight: 700;
+  }
+  .pot-tab .tab-sub { display: block; font-size: 0.68rem; margin-top: 2px; opacity: 0.88; }
+
+  .status-section { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 10px; }
+  .plant-header { display: flex; justify-content: space-between; align-items: center; }
+  .plant-name { font-size: 1rem; font-weight: 700; }
+  .plant-stage {
+    font-size: 0.75rem;
+    color: var(--accent-leaf);
+    background: rgba(74, 222, 128, 0.14);
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+
+  .bar-row { display: flex; flex-direction: column; gap: 3px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); }
+  .bar-track { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+  .fill-growth { background: linear-gradient(90deg, #22c55e, #86efac); }
+  .fill-water { background: linear-gradient(90deg, #0284c7, #7dd3fc); }
+
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .action-btn {
+    padding: 11px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(30, 41, 59, 0.95);
+    color: #fff;
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .action-btn span.sub { font-size: 0.68rem; font-weight: 400; color: var(--text-muted); }
+
+  .btn-harvest {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border-color: #a78bfa;
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+  }
+
+  .admin-panel {
+    display: none;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 10px;
+    flex-shrink: 0;
+  }
+  .admin-panel.visible { display: block; }
+  .admin-panel.open { background: rgba(2, 6, 23, 0.94); border-style: dashed; }
+
+  .debug-toggle-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 2px 0; }
+  .debug-toggle-label { color: #fde047; display: flex; align-items: center; gap: 5px; font-weight: 600; }
+  .debug-status-pill { font-size: 0.65rem; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,0.06); color: #cbd5e1; }
+  .debug-status-pill.virtual { background: rgba(251, 191, 36, 0.25); color: #fde047; }
+
+  .admin-body { display: none; flex-direction: column; gap: 7px; margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.1); }
+  .admin-panel.open .admin-body { display: flex; }
+
+  .debug-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+  .debug-btns button { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; border-radius: 6px; padding: 4px 8px; font-size: 0.68rem; cursor: pointer; }
+
+  .invite-box { background: rgba(30, 41, 59, 0.7); border-radius: 6px; padding: 7px; display: flex; flex-direction: column; gap: 5px; }
+  .invite-row { display: flex; gap: 5px; align-items: center; }
+  .invite-code-display { flex: 1; background: #020617; border: 1px solid #334155; color: #4ade80; font-family: monospace; font-size: 0.82rem; font-weight: 700; padding: 5px 8px; border-radius: 5px; user-select: all; -webkit-user-select: all; }
+  .invite-btn { background: #b45309; color: #fff; border: none; border-radius: 5px; padding: 6px 9px; font-size: 0.7rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+  @media (orientation: portrait) {
+    #app { flex-direction: column; }
+    .left-stage { flex: none; width: 100%; height: 46%; min-height: 250px; }
+    .right-sidebar {
+      flex: 1;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      height: 54%;
+      border-left: none;
+      border-top: 1px solid var(--panel-border);
+      padding: 12px 18px;
+    }
+  }
+
+  @media (orientation: portrait) and (min-width: 700px) {
+    .left-stage { height: 48%; }
+    .right-sidebar { height: 52%; padding: 16px 28px; }
+    .action-btn { padding: 14px 10px; font-size: 0.95rem; }
+    .pot-tab { padding: 10px 6px; font-size: 0.86rem; }
+  }
+
+  /* モーダル */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.78);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 580px;
+    max-height: 84%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px 20px;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #1e293b;
+  }
+  .modal-close { background: none; border: none; color: #94a3b8; font-size: 1.6rem; cursor: pointer; padding: 0 6px; }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .filter-chip { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; border-radius: 999px; padding: 5px 11px; font-size: 0.76rem; cursor: pointer; }
+  .filter-chip.active { background: #0284c7; color: #fff; border-color: #38bdf8; }
+
+  .seed-item, .book-item {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 11px 13px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .seed-info h4 { font-size: 0.92rem; margin-bottom: 3px; }
+  .seed-info p { font-size: 0.78rem; color: #94a3b8; line-height: 1.4; }
+  .category-tag { display: inline-block; font-size: 0.68rem; padding: 1px 6px; border-radius: 4px; background: rgba(148, 163, 184, 0.18); color: #cbd5e1; margin-right: 4px; }
+  .plant-select-btn { background: #0284c7; color: white; border: none; border-radius: 8px; padding: 9px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+  .garden-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .garden-card.self { border-color: #38bdf8; background: rgba(30, 58, 138, 0.28); }
+  .garden-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .garden-name { font-weight: 700; font-size: 0.95rem; }
+  .garden-stats { font-size: 0.74rem; color: #fde047; }
+  .garden-pots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .garden-pot-mini {
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 7px 6px;
+    text-align: center;
+    font-size: 0.74rem;
+  }
+  .garden-pot-mini span { display: block; font-size: 0.68rem; color: #4ade80; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- 認証画面 -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">
+      <h2>🌙 深夜0時のベランダ園芸</h2>
+      <p>招待制スローライフ・ブラウザゲーム</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-auth-login" onclick="switchAuthMode('login')">ログイン</button>
+      <button class="auth-tab" id="tab-auth-register" onclick="switchAuthMode('register')">招待コードで登録</button>
+    </div>
+
+    <div class="auth-field" id="field-invite" style="display:none;">
+      <label>🎟 招待コード（管理者から受け取ったコード）</label>
+      <input type="text" id="input-invite" placeholder="例：WELCOME-0000" autocomplete="off">
+    </div>
+
+    <div class="auth-field">
+      <label>🌿 プレイヤー名</label>
+      <input type="text" id="input-player" placeholder="2〜16文字の名前" autocomplete="username">
+    </div>
+
+    <div class="auth-field">
+      <label>🔑 パスワード</label>
+      <input type="password" id="input-password" placeholder="4文字以上のパスワード" autocomplete="current-password">
+    </div>
+
+    <button class="auth-submit-btn" id="btn-auth-submit" onclick="submitAuth()">ベランダに入る</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<!-- メイン画面 -->
+<div id="app" class="mode-midnight">
+  <div class="left-stage">
+    <svg id="scene-svg" viewBox="0 0 600 360" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#fef08a" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="potGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#7c2d12"/>
+          <stop offset="50%" stop-color="#9a3412"/>
+          <stop offset="100%" stop-color="#431407"/>
+        </linearGradient>
+      </defs>
+
+      <g id="stars-layer">
+        <circle cx="70" cy="45" r="1.5" fill="#fff" opacity="0.8"/>
+        <circle cx="150" cy="80" r="1.2" fill="#fff" opacity="0.6"/>
+        <circle cx="230" cy="35" r="1.8" fill="#fef08a" opacity="0.9"/>
+        <circle cx="320" cy="65" r="1.2" fill="#fff" opacity="0.7"/>
+        <circle cx="410" cy="40" r="1.5" fill="#fff" opacity="0.8"/>
+        <circle cx="110" cy="120" r="1" fill="#fff" opacity="0.5"/>
+        <circle cx="380" cy="110" r="1.3" fill="#fff" opacity="0.6"/>
+        <circle cx="530" cy="125" r="1.4" fill="#fff" opacity="0.7"/>
+        <circle cx="40" cy="145" r="1.2" fill="#fef08a" opacity="0.7"/>
+      </g>
+
+      <g id="celestial-body">
+        <circle cx="485" cy="70" r="65" fill="url(#moonGlow)" id="moon-aura"/>
+        <circle cx="485" cy="70" r="25" fill="#fef9c3" id="moon-disc"/>
+      </g>
+
+      <path d="M0,260 L0,195 L45,195 L45,170 L90,170 L90,210 L145,210 L145,160 L200,160 L200,200 L260,200 L260,175 L340,175 L340,205 L400,205 L400,165 L455,165 L455,190 L515,190 L515,155 L565,155 L565,185 L600,185 L600,260 Z" fill="#090d16" opacity="0.78"/>
+      <rect x="162" y="175" width="5" height="7" fill="#fde047" opacity="0.45"/>
+      <rect x="418" y="182" width="5" height="7" fill="#fde047" opacity="0.4"/>
+      <rect x="532" y="170" width="5" height="7" fill="#fde047" opacity="0.5"/>
+
+      <rect x="0" y="232" width="600" height="7" fill="#1e293b"/>
+      <rect x="0" y="280" width="600" height="9" fill="#0f172a"/>
+      <g fill="#1e293b">
+        <rect x="40" y="238" width="7" height="42"/>
+        <rect x="220" y="238" width="7" height="42"/>
+        <rect x="380" y="238" width="7" height="42"/>
+        <rect x="550" y="238" width="7" height="42"/>
+      </g>
+
+      <g id="visitor-layer" class="visitor-clickable" onclick="interactVisitor()"></g>
+
+      <rect x="0" y="288" width="600" height="72" fill="#0f172a"/>
+      <line x1="0" y1="288" x2="600" y2="288" stroke="#334155" stroke-width="2"/>
+
+      <ellipse id="active-pot-ring" cx="300" cy="346" rx="54" ry="8" fill="none" stroke="#38bdf8" stroke-width="2.5" opacity="0.85"/>
+
+      <g id="plant-layer-0" class="plant-sway-0"></g>
+      <g id="plant-layer-1" class="plant-sway-1"></g>
+      <g id="plant-layer-2" class="plant-sway-2"></g>
+
+      <g id="pot-0" class="pot-clickable" onclick="selectPot(0)">
+        <ellipse cx="145" cy="284" rx="42" ry="8" fill="#3e2723" id="soil-0"/>
+        <polygon points="101,285 189,285 177,338 113,338" fill="url(#potGrad)"/>
+        <rect x="96" y="279" width="98" height="10" rx="4" fill="#9a3412"/>
+        <rect x="107" y="338" width="76" height="5" rx="2" fill="#431407"/>
+      </g>
+
+      <g id="pot-1" class="pot-clickable" onclick="selectPot(1)">
+        <ellipse cx="300" cy="284" rx="42" ry="8" fill="#3e2723" id="soil-1"/>
+        <polygon points="256,285 344,285 332,338 268,338" fill="url(#potGrad)"/>
+        <rect x="251" y="279" width="98" height="10" rx="4" fill="#9a3412"/>
+        <rect x="262" y="338" width="76" height="5" rx="2" fill="#431407"/>
+      </g>
+
+      <g id="pot-2" class="pot-clickable" onclick="selectPot(2)">
+        <ellipse cx="455" cy="284" rx="42" ry="8" fill="#3e2723" id="soil-2"/>
+        <polygon points="411,285 499,285 487,338 423,338" fill="url(#potGrad)"/>
+        <rect x="406" y="279" width="98" height="10" rx="4" fill="#9a3412"/>
+        <rect x="417" y="338" width="76" height="5" rx="2" fill="#431407"/>
+      </g>
+
+      <g id="moon-particles">
+        <circle cx="145" cy="220" r="2" fill="#fef08a" opacity="0.7">
+          <animate attributeName="cy" values="250;170;250" dur="6s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0;0.85;0" dur="6s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="300" cy="210" r="2" fill="#fef08a" opacity="0.7">
+          <animate attributeName="cy" values="240;150;240" dur="5.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0;0.85;0" dur="5.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="455" cy="220" r="2" fill="#fef08a" opacity="0.7">
+          <animate attributeName="cy" values="250;170;250" dur="6.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0;0.85;0" dur="6.5s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    </svg>
+
+    <div class="message-overlay" id="message-text">
+      静かな夜風がベランダを通り抜けていく。鉢をタップして世話をしよう。
+    </div>
+  </div>
+
+  <!-- 右側サイドバー -->
+  <div class="right-sidebar">
+    <div>
+      <div class="sidebar-header">
+        <div class="clock-box">
+          <div class="player-pill">
+            <span class="sync-dot" id="sync-dot"></span>
+            <span id="player-name-display">ゲスト</span>
+          </div>
+          <div class="clock-row">
+            <span class="clock-time" id="clock-display">24:00</span>
+            <span id="time-badge" class="badge-midnight">✦ 月光ボーナス中</span>
+          </div>
+        </div>
+        <div class="header-btns">
+          <button class="icon-btn" id="btn-sound" title="環境音">🔇</button>
+          <button class="icon-btn" id="btn-community">🏘 みんな</button>
+          <button class="icon-btn" id="btn-book">📖 図鑑</button>
+          <button class="icon-btn" onclick="logoutPlayer()" title="ログアウト">🚪</button>
+        </div>
+      </div>
+
+      <div class="pot-tabs">
+        <button class="pot-tab active" id="tab-pot-0" onclick="selectPot(0)">
+          左の鉢
+          <span class="tab-sub" id="tab-sub-0">空き</span>
+        </button>
+        <button class="pot-tab" id="tab-pot-1" onclick="selectPot(1)">
+          中央の鉢
+          <span class="tab-sub" id="tab-sub-1">空き</span>
+        </button>
+        <button class="pot-tab" id="tab-pot-2" onclick="selectPot(2)">
+          右の鉢
+          <span class="tab-sub" id="tab-sub-2">空き</span>
+        </button>
+      </div>
+
+      <div class="status-section">
+        <div class="plant-header">
+          <div class="plant-name" id="plant-name">空の植木鉢</div>
+          <div class="plant-stage" id="plant-stage">種をまこう</div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label">
+            <span>成長度</span>
+            <span id="growth-text">0.0%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill fill-growth" id="growth-bar" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <div class="bar-row">
+          <div class="bar-label">
+            <span>土のうるおい</span>
+            <span id="water-text">0%</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill fill-water" id="water-bar" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-grid" id="action-buttons">
+        <button class="action-btn" id="btn-water">
+          💧 水をあげる
+          <span class="sub">この鉢をうるおす</span>
+        </button>
+        <button class="action-btn" id="btn-seed">
+          🌱 種をえらぶ
+          <span class="sub">全20種類から選択</span>
+        </button>
+        <button class="action-btn btn-harvest" id="btn-harvest" style="display:none;">
+          ✨ 収穫して図鑑に記録する
+          <span class="sub">夜の記録に残ります</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 管理者専用パネル -->
+    <div class="admin-panel" id="admin-panel">
+      <div class="debug-toggle-header" onclick="toggleAdminPanel()">
+        <span class="debug-toggle-label">
+          <span id="debug-arrow">▸</span>
+          <span>👑 管理者ツール & 招待コード</span>
+        </span>
+        <span class="debug-status-pill" id="debug-offset-label">実時間</span>
+      </div>
+
+      <div class="admin-body">
+        <div class="invite-box">
+          <div class="invite-row">
+            <div class="invite-code-display" id="latest-invite-code">---- ----</div>
+            <button class="invite-btn" onclick="requestNewInviteCode()">🎟 新規発行</button>
+            <button class="invite-btn" style="background:#0284c7;" onclick="copyInviteCode()">📋</button>
+          </div>
+          <div style="font-size:0.65rem; color:#94a3b8;" id="unused-invites-label">未使用コード: 読み込み中...</div>
+        </div>
+
+        <div class="debug-btns">
+          <button onclick="debugSetMidnight()">🌙 24:15</button>
+          <button onclick="debugSetDay()">☀️ 14:00</button>
+          <button onclick="debugSpawnVisitor()">🐈‍⬛ 来訪者(8種)</button>
+          <button onclick="debugAddHours(24)">+1日</button>
+          <button onclick="debugAddHours(168)">+7日</button>
+          <button onclick="debugResetTime()">🔄 戻す</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- モーダル：種選択 -->
+<div class="modal-overlay" id="modal-seed">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="seed-modal-title">🌱 植える種をえらぶ（全20種）</h3>
+      <button class="modal-close" onclick="closeModals()">×</button>
+    </div>
+    <div class="filter-bar" id="seed-filter-bar">
+      <button class="filter-chip active" onclick="filterSeeds('all', this)">すべて (20)</button>
+      <button class="filter-chip" onclick="filterSeeds('ハーブ', this)">ハーブ</button>
+      <button class="filter-chip" onclick="filterSeeds('夜の花', this)">夜の花</button>
+      <button class="filter-chip" onclick="filterSeeds('キノコ・多肉', this)">キノコ・多肉</button>
+      <button class="filter-chip" onclick="filterSeeds('果実・樹木', this)">果実・樹木</button>
+    </div>
+    <div id="seed-list"></div>
+  </div>
+</div>
+
+<!-- モーダル：図鑑 -->
+<div class="modal-overlay" id="modal-book">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>📖 深夜のベランダ図鑑</h3>
+      <button class="modal-close" onclick="closeModals()">×</button>
+    </div>
+    <div id="book-list"></div>
+  </div>
+</div>
+
+<!-- モーダル：みんなのベランダ図鑑 -->
+<div class="modal-overlay" id="modal-community">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>🏘 みんなのベランダ図鑑</h3>
+      <button class="modal-close" onclick="closeModals()">×</button>
+    </div>
+    <div id="community-list">読み込み中...</div>
+  </div>
+</div>
+
+<script>
+// ★ ここにデプロイしたGASのウェブアプリURLを貼り付けてください ★
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzQaaa_HAG0G1DLNRfcaXsTrf0Monz-eH9AJ7JwjGE2i9LlSn5YANAf4B-NwgvOicZK/exec';
+
+/**
+ * GASバックエンドとの共通fetch通信ヘルパー
+ */
+async function callGasApi(payload) {
+  if (!GAS_API_URL || !GAS_API_URL.startsWith('https://')) {
+    throw new Error('GAS_API_URL が設定されていません。');
+  }
+  const res = await fetch(GAS_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    throw new Error(`HTTPエラー (${res.status})`);
+  }
+  return await res.json();
+}
+
+const PLANTS_DB = {
+  mint: { id: 'mint', category: 'ハーブ', shape: 'flower', name: 'ミントの夜露草', shortName: 'ミント', daysLabel: '約2日で収穫', growHours: 48, dryHours: 32, colorPetal: '#a7f3d0', colorCenter: '#ffffff', desc: '最も早く育つ爽やかなハーブ。深夜の空気をすっと澄ませてくれる。', teaNote: 'お湯を注ぐと清涼な香りが立ちのぼり、頭が静かに澄みわたる。' },
+  chamomile: { id: 'chamomile', category: 'ハーブ', shape: 'flower', name: 'ヨルノカモミール', shortName: 'カモミール', daysLabel: '約3日で開花', growHours: 72, dryHours: 36, colorPetal: '#ffffff', colorCenter: '#facc15', desc: '寝る前のハーブティーに最適な小さな白い花。初心者でも育てやすい。', teaNote: 'リンゴのような甘い香りが、一日の緊張をそっと解いてくれる。' },
+  lemon_balm: { id: 'lemon_balm', category: 'ハーブ', shape: 'flower', name: 'レモンバームの葉', shortName: 'レモンバーム', daysLabel: '約3日で収穫', growHours: 72, dryHours: 34, colorPetal: '#fef08a', colorCenter: '#86efac', desc: '指先で葉に触れるだけで優しい柑橘の香りが漂う癒やしのハーブ。', teaNote: 'ほのかなレモンの風味が、静かな夜の読書時間にそっと寄り添う。' },
+  night_sakura: { id: 'night_sakura', category: '夜の花', shape: 'flower', name: 'ヨザクラソウ（夜桜草）', shortName: '夜桜草', daysLabel: '約4日で開花', growHours: 96, dryHours: 36, colorPetal: '#fbcfe8', colorCenter: '#f472b6', desc: '月明かりの下で淡い桃色に透ける可憐な五弁の花。', teaNote: '花びらを浮かべた白湯は、春の夜風のような優しい甘みがある。' },
+  rosemary: { id: 'rosemary', category: 'ハーブ', shape: 'bell', name: 'ローズマリーの小枝', shortName: 'ローズマリー', daysLabel: '約5日で開花', growHours: 120, dryHours: 48, colorPetal: '#93c5fd', colorCenter: '#dbeafe', desc: '「海のしずく」の名を持つ常緑ハーブ。月光色の小さな花をつける。', teaNote: 'すっきりとした森のような香りが、深い深呼吸へと誘ってくれる。' },
+  glow_mushroom: { id: 'glow_mushroom', category: 'キノコ・多肉', shape: 'mushroom', name: '夜光キノコ（シイノトモシビ）', shortName: '夜光キノコ', daysLabel: '約5日で発光', growHours: 120, dryHours: 28, colorPetal: '#38bdf8', colorCenter: '#e0f2fe', desc: '湿った土を好み、深夜になると傘全体が青白く幻想的に光るキノコ。', teaNote: '※食べられない鑑賞用の発光菌。瓶に詰めて枕元の小さな灯りにする。' },
+  evening_primrose: { id: 'evening_primrose', category: '夜の花', shape: 'flower', name: 'ツキミソウ（月見草）', shortName: '月見草', daysLabel: '約6日で開花', growHours: 144, dryHours: 38, colorPetal: '#fde047', colorCenter: '#ca8a04', desc: '日が沈むとひっそりと花開き、朝になると閉じる黄色の夜咲き花。', teaNote: '月の光をそのまま閉じ込めたような、温かみのある黄金色の花。' },
+  lavender: { id: 'lavender', category: 'ハーブ', shape: 'bell', name: 'ホシゾララベンダー', shortName: 'ラベンダー', daysLabel: '約7日で開花', growHours: 168, dryHours: 42, colorPetal: '#a855f7', colorCenter: '#e9d5ff', desc: '深い紫色の穂をつけるハーブ。夜風に乗せて静かな香りを漂わせる。', teaNote: '目を閉じると、満天の星空の下にいるような静けさが広がる。' },
+  forget_me_not: { id: 'forget_me_not', category: '夜の花', shape: 'flower', name: 'ワスレナグサ（勿忘草）', shortName: '勿忘草', daysLabel: '約7日で開花', growHours: 168, dryHours: 36, colorPetal: '#60a5fa', colorCenter: '#fef08a', desc: '夜空を切り取ったような青い小花を次々と咲かせる愛らしい草花。', teaNote: '押し花にしてしおりに挟めば、今日の静かな夜をいつでも思い出せる。' },
+  lily_of_valley: { id: 'lily_of_valley', category: '夜の花', shape: 'bell', name: 'スズラン（鈴蘭）', shortName: 'スズラン', daysLabel: '約8日で開花', growHours: 192, dryHours: 36, colorPetal: '#ffffff', colorCenter: '#bbf7d0', desc: '小さな白い鈴のような花が垂れ下がって咲く、気品あふれる春の象徴。', teaNote: '※観賞用の花。夜風に揺れるたびに、聞こえないほど小さな鈴の音が響く。' },
+  crimson_mushroom: { id: 'crimson_mushroom', category: 'キノコ・多肉', shape: 'mushroom', name: 'ベニイロ夜光タケ', shortName: '紅夜光タケ', daysLabel: '約9日で発光', growHours: 216, dryHours: 28, colorPetal: '#f43f5e', colorCenter: '#fecdd3', desc: '深い森の奥に自生する希少なキノコ。暗闇で妖しく紅紫色に輝く。', teaNote: '※観賞用の発光菌。ランタンのようにベランダの片隅を優しく照らす。' },
+  moon_cactus: { id: 'moon_cactus', category: 'キノコ・多肉', shape: 'cactus', name: '月光サボテン（セレウス）', shortName: '月光サボテン', daysLabel: '約10日で開花', growHours: 240, dryHours: 72, colorPetal: '#f9a8d4', colorCenter: '#fef08a', desc: '乾燥に非常に強く水やりが楽。育つと頂点に美しい夜咲きの花を冠する。', teaNote: 'トゲの奥に秘めた一輪の花。忙しくて毎日水やりできない人にも優しい。' },
+  haworthia: { id: 'haworthia', category: 'キノコ・多肉', shape: 'cactus', name: 'ハオルチア（雫石）', shortName: 'ハオルチア', daysLabel: '約12日で完成', growHours: 288, dryHours: 72, colorPetal: '#6ee7b7', colorCenter: '#ecfdf5', desc: '葉の先端が半透明の「窓」になっており、月光を浴びると宝石のように透ける。', teaNote: '水滴を固めたような透明感。静かな夜のデスクに飾りたくなる多肉植物。' },
+  wild_strawberry: { id: 'wild_strawberry', category: '果実・樹木', shape: 'tree', name: 'ワイルドストロベリー', shortName: '野いちご', daysLabel: '約12日で結実', growHours: 288, dryHours: 34, colorPetal: '#ef4444', colorCenter: '#fecaca', desc: '小さな白い花のあとに真っ赤な実をつける「幸運のハーブ」。', teaNote: '葉を乾燥させて淹れるお茶は、ほんのりベリーの香りがして心が和む。' },
+  moonflower: { id: 'moonflower', category: '夜の花', shape: 'flower', name: 'ゲッカビジン（月下美人）', shortName: '月下美人', daysLabel: '約14日で開花', growHours: 336, dryHours: 40, colorPetal: '#fef08a', colorCenter: '#ffffff', desc: '深夜にだけ大輪の花を咲かせる神秘の植物。月光を浴びると喜ぶ。', teaNote: '一晩だけの輝きを閉じ込めた、透き通るような味わいの雫。' },
+  black_lily: { id: 'black_lily', category: '夜の花', shape: 'bell', name: 'クロユリ（黒百合）', shortName: '黒百合', daysLabel: '約15日で開花', growHours: 360, dryHours: 40, colorPetal: '#6b21a8', colorCenter: '#facc15', desc: 'ビロードのような深い黒紫色の花をうつむき加減に咲かせる高貴な花。', teaNote: '夜空に溶け込むような深い色彩。静寂を愛する人に似合う一輪。' },
+  blueberry: { id: 'blueberry', category: '果実・樹木', shape: 'tree', name: 'ブルーベリーの鉢植え', shortName: 'ブルーベリー', daysLabel: '約18日で結実', growHours: 432, dryHours: 42, colorPetal: '#3b82f6', colorCenter: '#dbeafe', desc: '白い釣鐘状の花のあと、夜露をまとった深い青紫色の果実が実る。', teaNote: '摘みたての果実を数粒浮かべたハーブティーは、目に優しい夜の贅沢。' },
+  mistletoe: { id: 'mistletoe', category: '果実・樹木', shape: 'tree', name: 'ヤドリギの小さな盆栽', shortName: 'ヤドリギ', daysLabel: '約25日で結実', growHours: 600, dryHours: 50, colorPetal: '#facc15', colorCenter: '#fef9c3', desc: '北欧神話にも登場する聖なる木。長い時間をかけて金色の実をつける。', teaNote: '冬を越えても緑を保つ生命力の象徴。穏やかな眠りを守るお守り。' },
+  silver_olive: { id: 'silver_olive', category: '果実・樹木', shape: 'tree', name: 'ギンヨウオリーブの若木', shortName: '銀葉オリーブ', daysLabel: '約30日で結実', growHours: 720, dryHours: 54, colorPetal: '#38bdf8', colorCenter: '#bae6fd', desc: '1ヶ月かけてゆっくりと銀色の葉と青い実をつける長寿の木。', teaNote: '長い時間をかけて育てた証。穏やかな夜のお守りのような存在。' },
+  stardust_tree: { id: 'stardust_tree', category: '果実・樹木', shape: 'tree', name: '【伝説】ホシクズの古木', shortName: '星屑の樹', daysLabel: '約45日で満開', growHours: 1080, dryHours: 60, colorPetal: '#e879f9', colorCenter: '#fef08a', desc: '1ヶ月半もの歳月をかけて育てる幻の樹木。枝先に星屑のような光を宿す。', teaNote: '長い夜を共に過ごした時間の結晶。ベランダ全体を幻想的な光で満たす。' }
+};
+
+const VISITORS_DB = {
+  black_cat: { id: 'black_cat', name: '散歩中の黒猫', weight: 20, greetMsg: '手すりの上に、金色の瞳をした黒猫が静かに座っている…。（タップしてみよう）', rewardType: 'growth', rewardValue: 6, rewardMsg: '黒猫は喉を鳴らしてすり寄ってきた！育てている植物の成長度が +6% 進んだ！' },
+  owl: { id: 'owl', name: '小さなコノハズク', weight: 16, greetMsg: '手すりの隅に、羽を休める小さなフクロウが止まっている…。（タップしてみよう）', rewardType: 'growth', rewardValue: 8, rewardMsg: 'フクロウはホーッと小さく鳴いて夜空へ飛び立った。植物の成長度が +8% 進んだ！' },
+  firefly: { id: 'firefly', name: '迷い込んだ蛍', weight: 18, greetMsg: '植木鉢のまわりを、淡く光る一匹の蛍がふわふわと舞っている…。（タップしてみよう）', rewardType: 'water', rewardValue: 100, rewardMsg: '蛍が葉先にそっと止まると、夜露がたっぷり降りてすべての鉢のうるおいが100%に回復した！' },
+  white_owl: { id: 'white_owl', name: '【レア】シラユキフクロウ', weight: 7, greetMsg: '月光のように真っ白な羽を持つ美しいフクロウが、静かにこちらを見つめている…！（タップしてみよう）', rewardType: 'growth', rewardValue: 12, rewardMsg: '白フクロウが羽ばたくと銀色の光の粉が舞い落ち、すべての植物の成長度が +12% も進んだ！' },
+  gecko: { id: 'gecko', name: 'ベランダのヤモリ（家守）', weight: 16, greetMsg: '手すりの端に、小さなヤモリがちょこんと張り付いている…。（タップしてみよう）', rewardType: 'growth', rewardValue: 5, rewardMsg: '「家を守る」縁起物のヤモリが害虫を追い払ってくれた！植物の成長度が +5% 進んだ！' },
+  shooting_star: { id: 'shooting_star', name: '【レア】深夜の流れ星', weight: 8, greetMsg: '夜空の右上で、ひとすじの流れ星が尾を引いて輝いている…！（タップして願いを込めよう）', rewardType: 'growth', rewardValue: 10, rewardMsg: '流れ星に願いを込めた！星の輝きが鉢に降り注ぎ、すべての植物の成長度が +10% 進んだ！' },
+  tree_frog: { id: 'tree_frog', name: '雨呼びアマガエル', weight: 15, greetMsg: '手すりの上に、つやつやした小さな緑色のカエルが座っている…。（タップしてみよう）', rewardType: 'water_add', rewardValue: 60, rewardMsg: 'カエルがケロケロと鳴くと涼しい夜霧が立ち込め、すべての鉢のうるおいが +60% 回復した！' },
+  luna_moth: { id: 'luna_moth', name: '【レア】月光のオオミズアオ', weight: 8, greetMsg: '淡い青緑色の大きな羽を持つ神秘的な夜の蝶が、鉢の上を優雅に舞っている…！（タップしてみよう）', rewardType: 'both', rewardValue: 4, rewardMsg: '夜の蝶が羽ばたき、全鉢のうるおいを100%にしたうえ成長度も +4% 進めてくれた！' }
+};
+
+let currentUser = null;
+let authMode = 'login';
+let state = {
+  pots: [
+    { plantId: null, growth: 0, water: 0 },
+    { plantId: null, growth: 0, water: 0 },
+    { plantId: null, growth: 0, water: 0 }
+  ],
+  selectedPot: 1,
+  lastUpdate: Date.now(),
+  harvested: {},
+  visitorLog: {}
+};
+
+let activeVisitor = null;
+let visitorInteracted = false;
+let debugTimeOffset = 0;
+let syncTimer = null;
+const POT_X_POSITIONS = [145, 300, 455];
+const POT_NAMES = ['左の鉢', '中央の鉢', '右の鉢'];
+
+function getNow() { return Date.now() + debugTimeOffset; }
+function isMidnightHour(timestamp) { return new Date(timestamp).getHours() === 0; }
+
+function switchAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('tab-auth-login').classList.toggle('active', mode === 'login');
+  document.getElementById('tab-auth-register').classList.toggle('active', mode === 'register');
+  document.getElementById('field-invite').style.display = (mode === 'register') ? 'block' : 'none';
+  document.getElementById('btn-auth-submit').textContent = (mode === 'register') ? '招待コードで登録して始める' : 'ベランダに入る';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function submitAuth() {
+  const playerName = document.getElementById('input-player').value.trim();
+  const password = document.getElementById('input-password').value.trim();
+  const inviteCode = document.getElementById('input-invite').value.trim();
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('btn-auth-submit');
+
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = '通信中...';
+
+  try {
+    const payload = (authMode === 'register')
+      ? { action: 'register', inviteCode, playerName, password }
+      : { action: 'login', playerName, password };
+
+    const res = await callGasApi(payload);
+    if (res.ok) {
+      onAuthSuccess(res);
+    } else {
+      errEl.textContent = res.message;
+    }
+  } catch (err) {
+    errEl.textContent = '通信エラー: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = (authMode === 'register') ? '招待コードで登録して始める' : 'ベランダに入る';
+  }
+}
+
+function onAuthSuccess(res) {
+  currentUser = res.user;
+  if (res.state && res.state.pots) {
+    state = { ...state, ...res.state };
+  }
+
+  localStorage.setItem('veranda_session_auth', JSON.stringify(currentUser));
+
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('player-name-display').textContent =
+    currentUser.role === 'admin' ? `👑 ${currentUser.playerName}` : currentUser.playerName;
+
+  const adminPanel = document.getElementById('admin-panel');
+  if (currentUser.role === 'admin') {
+    adminPanel.classList.add('visible');
+    fetchUnusedInvites();
+  } else {
+    adminPanel.classList.remove('visible');
+  }
+
+  processElapsedTime();
+  updateClockAndAtmosphere();
+  checkMidnightVisitor();
+  updateUI();
+  setMessage(`おかえりなさい、${currentUser.playerName}さん。静かなベランダへようこそ。`);
+}
+
+function logoutPlayer() {
+  localStorage.removeItem('veranda_session_auth');
+  currentUser = null;
+  activeVisitor = null;
+  debugTimeOffset = 0;
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('input-password').value = '';
+}
+
+function init() {
+  renderSeedList('all');
+  updateClockAndAtmosphere();
+
+  const savedAuth = localStorage.getItem('veranda_session_auth');
+  if (savedAuth) {
+    try {
+      const auth = JSON.parse(savedAuth);
+      document.getElementById('input-player').value = auth.playerName || '';
+    } catch (e) {}
+  }
+
+  setInterval(() => {
+    if (!currentUser) return;
+    processElapsedTime();
+    updateClockAndAtmosphere();
+    updateUI();
+  }, 1000);
+}
+
+function saveGame() {
+  if (!currentUser) return;
+
+  const dot = document.getElementById('sync-dot');
+  dot.classList.add('saving');
+
+  if (syncTimer) clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    try {
+      await callGasApi({
+        action: 'sync',
+        auth: currentUser,
+        stateJson: JSON.stringify(state)
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      dot.classList.remove('saving');
+    }
+  }, 1200);
+}
+
+/* みんなのベランダ図鑑 */
+document.getElementById('btn-community').addEventListener('click', () => {
+  document.getElementById('modal-community').classList.add('open');
+  loadCommunityGardens();
+});
+
+async function loadCommunityGardens() {
+  const container = document.getElementById('community-list');
+  container.innerHTML = '<p style="color:#94a3b8; font-size:0.84rem;">ベランダの様子を読み込んでいます...</p>';
+
+  try {
+    const res = await callGasApi({ action: 'getCommunity', auth: currentUser });
+    if (!res || !res.ok) {
+      container.innerHTML = `<p style="color:#fca5a5;">${res ? res.message : '取得エラー'}</p>`;
+      return;
+    }
+    container.innerHTML = '';
+    res.gardens.forEach(g => {
+      const card = document.createElement('div');
+      card.className = 'garden-card' + (g.isSelf ? ' self' : '');
+      const potsHtml = g.pots.map(p => {
+        const info = p.plantId ? PLANTS_DB[p.plantId] : null;
+        return `<div class="garden-pot-mini">${info ? info.shortName : '空き鉢'}<span>${info ? (p.growth >= 100 ? '✨満開' : p.growth + '%') : '-'}</span></div>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="garden-top">
+          <div class="garden-name">${g.isAdmin ? '👑' : '🌿'} ${g.playerName}${g.isSelf ? '（あなた）' : ''}</div>
+          <div class="garden-stats">🌿 ${g.harvestedCount}/20種・🌙 ${g.visitorCount}/8種</div>
+        </div>
+        <div class="garden-pots">${potsHtml}</div>
+      `;
+      container.appendChild(card);
+    });
+  } catch (err) {
+    container.innerHTML = `<p style="color:#fca5a5;">通信エラー: ${err.message}</p>`;
+  }
+}
+
+/* 管理者：招待コード発行 */
+async function fetchUnusedInvites() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  try {
+    const res = await callGasApi({ action: 'getAdminInvites', auth: currentUser });
+    if (res && res.ok) updateInviteDisplay(res.unusedCodes);
+  } catch (e) {}
+}
+
+async function requestNewInviteCode() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  document.getElementById('latest-invite-code').textContent = '発行中...';
+  try {
+    const res = await callGasApi({ action: 'generateInvite', auth: currentUser });
+    if (res.ok) {
+      document.getElementById('latest-invite-code').textContent = res.code;
+      updateInviteDisplay(res.unusedCodes);
+      setMessage(`👑 新しい招待コード「${res.code}」を発行しました！`);
+    } else {
+      alert(res.message);
+    }
+  } catch (err) {
+    alert('通信エラー: ' + err.message);
+  }
+}
+
+function updateInviteDisplay(codes) {
+  const label = document.getElementById('unused-invites-label');
+  if (!codes || codes.length === 0) {
+    label.textContent = '未使用コード: なし';
+  } else {
+    if (document.getElementById('latest-invite-code').textContent === '---- ----') {
+      document.getElementById('latest-invite-code').textContent = codes[0];
+    }
+    label.textContent = `未使用(${codes.length}件): ${codes.join(', ')}`;
+  }
+}
+
+function copyInviteCode() {
+  const code = document.getElementById('latest-invite-code').textContent;
+  if (!code || code.includes('- -')) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      setMessage(`📋 招待コード「${code}」をコピーしました。`);
+    });
+  }
+}
+
+/* ゲーム進行ロジック */
+function processElapsedTime() {
+  const now = getNow();
+  const elapsedMs = now - state.lastUpdate;
+  if (elapsedMs <= 0) { state.lastUpdate = now; return; }
+
+  const elapsedHours = elapsedMs / (1000 * 60 * 60);
+  const speedMultiplier = isMidnightHour(now) ? 2.0 : 1.0;
+
+  state.pots.forEach(pot => {
+    if (pot.plantId && pot.growth < 100) {
+      const plant = PLANTS_DB[pot.plantId];
+      const dryHours = plant.dryHours || 36;
+      const waterLoss = elapsedHours * (100 / dryHours);
+      const avgWater = Math.max(0, pot.water - waterLoss / 2);
+      pot.water = Math.max(0, pot.water - waterLoss);
+
+      if (avgWater > 0) {
+        const waterEfficiency = avgWater > 20 ? 1.0 : 0.5;
+        const growthGain = (elapsedHours / plant.growHours) * 100 * speedMultiplier * waterEfficiency;
+        pot.growth = Math.min(100, pot.growth + growthGain);
+      }
+    } else if (pot.plantId && pot.growth >= 100) {
+      const waterLoss = elapsedHours * (100 / 48);
+      pot.water = Math.max(0, pot.water - waterLoss);
+    }
+  });
+
+  state.lastUpdate = now;
+}
+
+function checkMidnightVisitor() {
+  const now = getNow();
+  if (!isMidnightHour(now)) {
+    activeVisitor = null;
+    renderVisitorSVG();
+    return;
+  }
+
+  if (!activeVisitor && Math.random() < 0.70) {
+    const list = Object.values(VISITORS_DB);
+    const totalWeight = list.reduce((sum, v) => sum + v.weight, 0);
+    let rand = Math.random() * totalWeight;
+    for (const v of list) {
+      if (rand < v.weight) { activeVisitor = v; break; }
+      rand -= v.weight;
+    }
+    visitorInteracted = false;
+    renderVisitorSVG();
+    setMessage(`✦ ${activeVisitor.greetMsg}`);
+  }
+}
+
+function interactVisitor() {
+  if (!activeVisitor) return;
+  playMagicSound();
+
+  if (visitorInteracted) {
+    setMessage(`${activeVisitor.name}は静かに深夜の空気を楽しんでいる。`);
+    return;
+  }
+
+  visitorInteracted = true;
+  state.visitorLog[activeVisitor.id] = (state.visitorLog[activeVisitor.id] || 0) + 1;
+
+  if (activeVisitor.rewardType === 'growth') {
+    let applied = false;
+    state.pots.forEach(pot => {
+      if (pot.plantId && pot.growth < 100) {
+        pot.growth = Math.min(100, pot.growth + activeVisitor.rewardValue);
+        applied = true;
+      }
+    });
+    setMessage(applied ? `✨ ${activeVisitor.rewardMsg}` : `${activeVisitor.name}は空の鉢を覗き込んでいる。種をまいておけば成長を助けてくれそうだ。`);
+  } else if (activeVisitor.rewardType === 'water') {
+    state.pots.forEach(pot => { pot.water = 100; });
+    setMessage(`✨ ${activeVisitor.rewardMsg}`);
+  } else if (activeVisitor.rewardType === 'water_add') {
+    state.pots.forEach(pot => { pot.water = Math.min(100, pot.water + activeVisitor.rewardValue); });
+    setMessage(`✨ ${activeVisitor.rewardMsg}`);
+  } else if (activeVisitor.rewardType === 'both') {
+    state.pots.forEach(pot => {
+      pot.water = 100;
+      if (pot.plantId && pot.growth < 100) {
+        pot.growth = Math.min(100, pot.growth + activeVisitor.rewardValue);
+      }
+    });
+    setMessage(`✨ ${activeVisitor.rewardMsg}`);
+  }
+
+  saveGame();
+  updateUI();
+}
+
+function renderVisitorSVG() {
+  const layer = document.getElementById('visitor-layer');
+  layer.innerHTML = '';
+  if (!activeVisitor) return;
+
+  switch (activeVisitor.id) {
+    case 'black_cat':
+      layer.innerHTML = `<g transform="translate(75, 232)"><path d="M12,-4 Q28,-8 24,-22" stroke="#090d16" stroke-width="4" stroke-linecap="round" fill="none"/><ellipse cx="0" cy="-14" rx="11" ry="15" fill="#090d16"/><circle cx="0" cy="-31" r="10" fill="#090d16"/><polygon points="-9,-36 -6,-47 -1,-39" fill="#090d16"/><polygon points="9,-36 6,-47 1,-39" fill="#090d16"/><ellipse cx="-3.5" cy="-31" rx="1.8" ry="2.2" fill="#facc15"/><ellipse cx="3.5" cy="-31" rx="1.8" ry="2.2" fill="#facc15"/></g>`;
+      break;
+    case 'owl':
+      layer.innerHTML = `<g transform="translate(515, 232)"><ellipse cx="0" cy="-14" rx="10" ry="14" fill="#334155"/><ellipse cx="0" cy="-12" rx="6" ry="9" fill="#64748b"/><circle cx="0" cy="-28" r="9" fill="#334155"/><polygon points="-8,-33 -6,-41 -2,-35" fill="#334155"/><polygon points="8,-33 6,-41 2,-35" fill="#334155"/><circle cx="-3.5" cy="-28" r="2.5" fill="#fde047"/><circle cx="3.5" cy="-28" r="2.5" fill="#fde047"/><circle cx="-3.5" cy="-28" r="1" fill="#000"/><circle cx="3.5" cy="-28" r="1" fill="#000"/></g>`;
+      break;
+    case 'firefly':
+      layer.innerHTML = `<g transform="translate(225, 195)"><circle cx="0" cy="0" r="16" fill="#bef264" opacity="0.28"><animate attributeName="r" values="10;20;10" dur="2s" repeatCount="indefinite"/></circle><circle cx="0" cy="0" r="4" fill="#ecfccb"/></g>`;
+      break;
+    case 'white_owl':
+      layer.innerHTML = `<g transform="translate(510, 232)"><circle cx="0" cy="-20" r="30" fill="#ffffff" opacity="0.12"/><ellipse cx="0" cy="-16" rx="12" ry="16" fill="#f8fafc"/><ellipse cx="0" cy="-14" rx="8" ry="11" fill="#e2e8f0"/><circle cx="0" cy="-32" r="10.5" fill="#ffffff"/><circle cx="-4" cy="-32" r="2.6" fill="#38bdf8"/><circle cx="4" cy="-32" r="2.6" fill="#38bdf8"/><circle cx="-4" cy="-32" r="1.1" fill="#0f172a"/><circle cx="4" cy="-32" r="1.1" fill="#0f172a"/><polygon points="-2,-29 2,-29 0,-26" fill="#94a3b8"/></g>`;
+      break;
+    case 'gecko':
+      layer.innerHTML = `<g transform="translate(65, 232)"><path d="M-18,-3 Q-28,-6 -24,-12" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" fill="none"/><ellipse cx="-6" cy="-4" rx="12" ry="4.5" fill="#cbd5e1"/><circle cx="7" cy="-5" r="5" fill="#cbd5e1"/><line x1="-12" y1="-2" x2="-15" y2="2" stroke="#cbd5e1" stroke-width="2"/><line x1="1" y1="-2" x2="4" y2="2" stroke="#cbd5e1" stroke-width="2"/><circle cx="8.5" cy="-6" r="1.3" fill="#0f172a"/></g>`;
+      break;
+    case 'shooting_star':
+      layer.innerHTML = `<g transform="translate(360, 58)"><line x1="-55" y1="-22" x2="0" y2="0" stroke="url(#moonGlow)" stroke-width="4" stroke-linecap="round"/><line x1="-45" y1="-18" x2="0" y2="0" stroke="#fef08a" stroke-width="2.2" stroke-linecap="round"/><circle cx="0" cy="0" r="14" fill="#fef08a" opacity="0.35"><animate attributeName="r" values="10;18;10" dur="1.5s" repeatCount="indefinite"/></circle><polygon points="0,-7 2,-2 7,0 2,2 0,7 -2,2 -7,0 -2,-2" fill="#ffffff"/></g>`;
+      break;
+    case 'tree_frog':
+      layer.innerHTML = `<g transform="translate(300, 232)"><ellipse cx="0" cy="-7" rx="10" ry="7.5" fill="#4ade80"/><ellipse cx="0" cy="-5" rx="7" ry="4" fill="#bbf7d0"/><circle cx="-5" cy="-14" r="3.5" fill="#4ade80"/><circle cx="5" cy="-14" r="3.5" fill="#4ade80"/><circle cx="-5" cy="-14" r="1.6" fill="#0f172a"/><circle cx="5" cy="-14" r="1.6" fill="#0f172a"/></g>`;
+      break;
+    case 'luna_moth':
+      layer.innerHTML = `<g transform="translate(375, 185)"><circle cx="0" cy="0" r="24" fill="#6ee7b7" opacity="0.22"/><path d="M-2,0 Q-22,-18 -24,-2 Q-20,10 -4,4 Z" fill="#a7f3d0" opacity="0.9"/><path d="M-3,3 Q-18,14 -14,22 Q-8,18 -2,6 Z" fill="#6ee7b7" opacity="0.85"/><path d="M2,0 Q22,-18 24,-2 Q20,10 4,4 Z" fill="#a7f3d0" opacity="0.9"/><path d="M3,3 Q18,14 14,22 Q8,18 2,6 Z" fill="#6ee7b7" opacity="0.85"/><ellipse cx="0" cy="2" rx="2.5" ry="8" fill="#ffffff"/></g>`;
+      break;
+  }
+}
+
+function updateClockAndAtmosphere() {
+  const now = getNow();
+  const d = new Date(now);
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+
+  const displayHour = (h === 0) ? '24' : String(h).padStart(2, '0');
+  document.getElementById('clock-display').textContent = `${displayHour}:${m}`;
+
+  const appEl = document.getElementById('app');
+  const badgeEl = document.getElementById('time-badge');
+  const starsEl = document.getElementById('stars-layer');
+  const particlesEl = document.getElementById('moon-particles');
+  const moonDisc = document.getElementById('moon-disc');
+  const moonAura = document.getElementById('moon-aura');
+
+  appEl.classList.remove('mode-midnight', 'mode-day', 'mode-evening');
+
+  if (h === 0) {
+    appEl.classList.add('mode-midnight');
+    badgeEl.className = 'badge-midnight';
+    badgeEl.textContent = '✦ 24時限定：月光ボーナス中 (2倍)';
+    starsEl.style.opacity = '1';
+    particlesEl.style.display = 'block';
+    moonDisc.setAttribute('fill', '#fef9c3');
+    moonAura.setAttribute('opacity', '1');
+  } else if (h >= 6 && h < 17) {
+    appEl.classList.add('mode-day');
+    badgeEl.className = 'badge-normal';
+    badgeEl.textContent = '☀️ 昼のベランダ（通常速度）';
+    starsEl.style.opacity = '0';
+    particlesEl.style.display = 'none';
+    moonDisc.setAttribute('fill', '#ffffff');
+    moonAura.setAttribute('opacity', '0.3');
+  } else if (h >= 17 && h < 19) {
+    appEl.classList.add('mode-evening');
+    badgeEl.className = 'badge-normal';
+    badgeEl.textContent = '🌆 夕暮れ（24時からボーナス）';
+    starsEl.style.opacity = '0.3';
+    particlesEl.style.display = 'none';
+  } else {
+    appEl.classList.add('mode-midnight');
+    badgeEl.className = 'badge-normal';
+    badgeEl.textContent = '🌙 静かな夜（24時からボーナス）';
+    starsEl.style.opacity = '0.8';
+    particlesEl.style.display = 'none';
+    moonDisc.setAttribute('fill', '#e2e8f0');
+    moonAura.setAttribute('opacity', '0.4');
+  }
+}
+
+function selectPot(index) {
+  state.selectedPot = index;
+  updateUI();
+}
+
+function renderAllPlantsSVG() {
+  state.pots.forEach((pot, index) => {
+    const layer = document.getElementById(`plant-layer-${index}`);
+    const soilEl = document.getElementById(`soil-${index}`);
+    layer.innerHTML = '';
+    soilEl.setAttribute('fill', pot.water > 30 ? '#271714' : '#5c4033');
+    if (!pot.plantId) return;
+
+    const plant = PLANTS_DB[pot.plantId];
+    const cx = POT_X_POSITIONS[index];
+    const g = pot.growth;
+    const shape = plant.shape || 'flower';
+    let svgContent = '';
+
+    if (shape === 'mushroom') {
+      const scale = 0.35 + (g / 100) * 0.75;
+      const glowOpacity = g >= 80 ? 0.38 : 0.14;
+      svgContent = `<g transform="translate(${cx}, 284) scale(${scale})"><circle cx="0" cy="-42" r="46" fill="${plant.colorPetal}" opacity="${glowOpacity}"/><rect x="-6" y="-36" width="12" height="36" rx="4" fill="#e2e8f0"/><path d="M-28,-34 Q0,-66 28,-34 Z" fill="${plant.colorPetal}"/><circle cx="-10" cy="-44" r="3" fill="${plant.colorCenter}" opacity="0.85"/><circle cx="8" cy="-46" r="2.5" fill="${plant.colorCenter}" opacity="0.85"/><circle cx="0" cy="-39" r="2" fill="${plant.colorCenter}" opacity="0.85"/>${g >= 40 ? `<rect x="16" y="-22" width="7" height="22" rx="3" fill="#cbd5e1"/><path d="M7,-20 Q19.5,-38 32,-20 Z" fill="${plant.colorPetal}"/>` : ''}${g >= 80 ? `<rect x="-24" y="-18" width="6" height="18" rx="3" fill="#cbd5e1"/><path d="M-32,-17 Q-21,-32 -10,-17 Z" fill="${plant.colorPetal}"/>` : ''}</g>`;
+    } else if (shape === 'cactus') {
+      const scale = 0.45 + (g / 100) * 0.6;
+      svgContent = `<g transform="translate(${cx}, 284) scale(${scale})"><ellipse cx="0" cy="-34" rx="22" ry="35" fill="#15803d"/><ellipse cx="0" cy="-34" rx="13" ry="34" fill="#16a34a"/><ellipse cx="0" cy="-34" rx="5" ry="33" fill="#22c55e"/>${g >= 45 ? `<ellipse cx="-22" cy="-26" rx="11" ry="18" transform="rotate(-25 -22 -26)" fill="#15803d"/><ellipse cx="22" cy="-24" rx="11" ry="18" transform="rotate(25 22 -24)" fill="#16a34a"/>` : ''}${g >= 80 ? `<circle cx="0" cy="-72" r="18" fill="${plant.colorPetal}" opacity="0.28"/><ellipse cx="0" cy="-74" rx="6" ry="12" fill="${plant.colorPetal}"/><ellipse cx="-8" cy="-71" rx="6" ry="10" transform="rotate(-35 -8 -71)" fill="${plant.colorPetal}"/><ellipse cx="8" cy="-71" rx="6" ry="10" transform="rotate(35 8 -71)" fill="${plant.colorPetal}"/><circle cx="0" cy="-72" r="4.5" fill="${plant.colorCenter}"/>` : ''}</g>`;
+    } else if (shape === 'bell') {
+      if (g < 25) {
+        svgContent = `<path d="M${cx},285 Q${cx},262 ${cx},248" stroke="#4ade80" stroke-width="4" stroke-linecap="round" fill="none"/><ellipse cx="${cx-10}" cy="255" rx="10" ry="5" transform="rotate(-30 ${cx-10} 255)" fill="#4ade80"/><ellipse cx="${cx+10}" cy="252" rx="10" ry="5" transform="rotate(30 ${cx+10} 252)" fill="#86efac"/>`;
+      } else {
+        const stemTop = g >= 100 ? 158 : (g >= 60 ? 182 : 210);
+        svgContent = `<path d="M${cx},285 Q${cx-8},220 ${cx+12},${stemTop}" stroke="#16a34a" stroke-width="5" stroke-linecap="round" fill="none"/><ellipse cx="${cx-18}" cy="245" rx="12" ry="32" transform="rotate(-18 ${cx-18} 245)" fill="#15803d"/><ellipse cx="${cx+18}" cy="248" rx="11" ry="28" transform="rotate(18 ${cx+18} 248)" fill="#22c55e"/>${g >= 55 ? `<circle cx="${cx-2}" cy="${stemTop+26}" r="7" fill="${plant.colorPetal}"/><circle cx="${cx+4}" cy="${stemTop+12}" r="6.5" fill="${plant.colorPetal}"/>` : ''}${g >= 100 ? `<circle cx="${cx+10}" cy="${stemTop}" r="22" fill="${plant.colorPetal}" opacity="0.22"/><circle cx="${cx+10}" cy="${stemTop}" r="6" fill="${plant.colorPetal}"/><circle cx="${cx-6}" cy="${stemTop+40}" r="7.5" fill="${plant.colorPetal}"/><circle cx="${cx-2}" cy="${stemTop+26}" r="3" fill="${plant.colorCenter}"/><circle cx="${cx+4}" cy="${stemTop+12}" r="2.8" fill="${plant.colorCenter}"/>` : ''}`;
+      }
+    } else if (shape === 'tree') {
+      if (g < 25) {
+        svgContent = `<path d="M${cx},285 L${cx},254" stroke="#78350f" stroke-width="5" stroke-linecap="round"/><ellipse cx="${cx-10}" cy="256" rx="10" ry="5" transform="rotate(-25 ${cx-10} 256)" fill="#4ade80"/><ellipse cx="${cx+10}" cy="254" rx="10" ry="5" transform="rotate(25 ${cx+10} 254)" fill="#86efac"/>`;
+      } else {
+        const crownR = g >= 100 ? 38 : (g >= 60 ? 28 : 19);
+        const crownY = g >= 100 ? 176 : (g >= 60 ? 196 : 216);
+        svgContent = `<path d="M${cx},285 Q${cx-3},240 ${cx},${crownY}" stroke="#78350f" stroke-width="8" stroke-linecap="round" fill="none"/><path d="M${cx},230 L${cx-18},${crownY+10}" stroke="#78350f" stroke-width="4.5" stroke-linecap="round"/><path d="M${cx},225 L${cx+18},${crownY+8}" stroke="#78350f" stroke-width="4.5" stroke-linecap="round"/><circle cx="${cx-18}" cy="${crownY+6}" r="${crownR*0.72}" fill="#15803d"/><circle cx="${cx+18}" cy="${crownY+6}" r="${crownR*0.72}" fill="#16a34a"/><circle cx="${cx}" cy="${crownY-6}" r="${crownR*0.85}" fill="#22c55e"/>${g >= 100 ? `<circle cx="${cx}" cy="${crownY}" r="${crownR+10}" fill="${plant.colorPetal}" opacity="0.18"/><circle cx="${cx-16}" cy="${crownY+4}" r="5.5" fill="${plant.colorPetal}"/><circle cx="${cx+15}" cy="${crownY+6}" r="5.5" fill="${plant.colorPetal}"/><circle cx="${cx}" cy="${crownY-12}" r="6" fill="${plant.colorPetal}"/><circle cx="${cx-6}" cy="${crownY+12}" r="5" fill="${plant.colorPetal}"/><circle cx="${cx+8}" cy="${crownY-4}" r="4.5" fill="${plant.colorCenter}"/>` : ''}`;
+      }
+    } else {
+      if (g < 15) {
+        svgContent = `<path d="M${cx},285 Q${cx},268 ${cx},258" stroke="#4ade80" stroke-width="4" stroke-linecap="round" fill="none"/><ellipse cx="${cx-9}" cy="258" rx="9" ry="5" transform="rotate(-25 ${cx-9} 258)" fill="#4ade80"/><ellipse cx="${cx+9}" cy="258" rx="9" ry="5" transform="rotate(25 ${cx+9} 258)" fill="#86efac"/>`;
+      } else if (g < 45) {
+        svgContent = `<path d="M${cx},285 Q${cx-4},250 ${cx},222" stroke="#22c55e" stroke-width="5" stroke-linecap="round" fill="none"/><ellipse cx="${cx-14}" cy="256" rx="14" ry="7" transform="rotate(-30 ${cx-14} 256)" fill="#22c55e"/><ellipse cx="${cx+14}" cy="248" rx="14" ry="7" transform="rotate(30 ${cx+14} 248)" fill="#4ade80"/><ellipse cx="${cx-12}" cy="228" rx="12" ry="6" transform="rotate(-20 ${cx-12} 228)" fill="#4ade80"/><ellipse cx="${cx+12}" cy="222" rx="12" ry="6" transform="rotate(20 ${cx+12} 222)" fill="#86efac"/>`;
+      } else if (g < 80) {
+        svgContent = `<path d="M${cx},285 Q${cx-5},235 ${cx},185" stroke="#16a34a" stroke-width="6" stroke-linecap="round" fill="none"/><path d="M${cx-2},240 Q${cx-24},222 ${cx-34},205" stroke="#22c55e" stroke-width="4" fill="none"/><path d="M${cx},228 Q${cx+24},210 ${cx+34},192" stroke="#22c55e" stroke-width="4" fill="none"/><ellipse cx="${cx-18}" cy="258" rx="17" ry="8" transform="rotate(-25 ${cx-18} 258)" fill="#16a34a"/><ellipse cx="${cx+18}" cy="254" rx="17" ry="8" transform="rotate(25 ${cx+18} 254)" fill="#22c55e"/><ellipse cx="${cx-34}" cy="205" rx="14" ry="7" transform="rotate(-35 ${cx-34} 205)" fill="#4ade80"/><ellipse cx="${cx+34}" cy="192" rx="14" ry="7" transform="rotate(35 ${cx+34} 192)" fill="#4ade80"/><ellipse cx="${cx}" cy="177" rx="7" ry="12" fill="${plant.colorPetal}" opacity="0.85"/>`;
+      } else if (g < 100) {
+        svgContent = `<path d="M${cx},285 Q${cx-5},222 ${cx},168" stroke="#16a34a" stroke-width="6" stroke-linecap="round" fill="none"/><ellipse cx="${cx-22}" cy="250" rx="19" ry="9" transform="rotate(-25 ${cx-22} 250)" fill="#15803d"/><ellipse cx="${cx+22}" cy="245" rx="19" ry="9" transform="rotate(25 ${cx+22} 245)" fill="#16a34a"/><ellipse cx="${cx-24}" cy="208" rx="17" ry="8" transform="rotate(-30 ${cx-24} 208)" fill="#22c55e"/><ellipse cx="${cx+24}" cy="204" rx="17" ry="8" transform="rotate(30 ${cx+24} 204)" fill="#4ade80"/><circle cx="${cx}" cy="160" r="13" fill="${plant.colorPetal}" opacity="0.9"/>`;
+      } else {
+        svgContent = `<path d="M${cx},285 Q${cx-5},222 ${cx},160" stroke="#16a34a" stroke-width="6.5" stroke-linecap="round" fill="none"/><path d="M${cx-2},215 Q${cx-30},192 ${cx-40},175" stroke="#22c55e" stroke-width="4" fill="none"/><path d="M${cx},210 Q${cx+30},188 ${cx+40},170" stroke="#22c55e" stroke-width="4" fill="none"/><ellipse cx="${cx-22}" cy="254" rx="20" ry="9" transform="rotate(-25 ${cx-22} 254)" fill="#15803d"/><ellipse cx="${cx+22}" cy="250" rx="20" ry="9" transform="rotate(25 ${cx+22} 250)" fill="#16a34a"/><ellipse cx="${cx-26}" cy="212" rx="18" ry="8" transform="rotate(-30 ${cx-26} 212)" fill="#22c55e"/><ellipse cx="${cx+26}" cy="208" rx="18" ry="8" transform="rotate(30 ${cx+26} 208)" fill="#4ade80"/><g transform="translate(${cx}, 152)"><circle cx="0" cy="0" r="28" fill="${plant.colorPetal}" opacity="0.22"/><ellipse cx="0" cy="-14" rx="7" ry="14" fill="${plant.colorPetal}"/><ellipse cx="0" cy="14" rx="7" ry="14" fill="${plant.colorPetal}"/><ellipse cx="-14" cy="0" rx="14" ry="7" fill="${plant.colorPetal}"/><ellipse cx="14" cy="0" rx="14" ry="7" fill="${plant.colorPetal}"/><ellipse cx="-10" cy="-10" rx="11" ry="6" transform="rotate(45 -10 -10)" fill="${plant.colorPetal}"/><ellipse cx="10" cy="10" rx="11" ry="6" transform="rotate(45 10 10)" fill="${plant.colorPetal}"/><ellipse cx="10" cy="-10" rx="11" ry="6" transform="rotate(-45 10 -10)" fill="${plant.colorPetal}"/><ellipse cx="-10" cy="10" rx="11" ry="6" transform="rotate(-45 -10 10)" fill="${plant.colorPetal}"/><circle cx="0" cy="0" r="7" fill="${plant.colorCenter}"/></g><g transform="translate(${cx-40}, 172) scale(0.55)"><circle cx="0" cy="-10" r="8" fill="${plant.colorPetal}"/><circle cx="10" cy="0" r="8" fill="${plant.colorPetal}"/><circle cx="0" cy="10" r="8" fill="${plant.colorPetal}"/><circle cx="-10" cy="0" r="8" fill="${plant.colorPetal}"/><circle cx="0" cy="0" r="5" fill="${plant.colorCenter}"/></g><g transform="translate(${cx+40}, 168) scale(0.55)"><circle cx="0" cy="-10" r="8" fill="${plant.colorPetal}"/><circle cx="10" cy="0" r="8" fill="${plant.colorPetal}"/><circle cx="0" cy="10" r="8" fill="${plant.colorPetal}"/><circle cx="-10" cy="0" r="8" fill="${plant.colorPetal}"/><circle cx="0" cy="0" r="5" fill="${plant.colorCenter}"/></g>`;
+      }
+    }
+
+    layer.innerHTML = svgContent;
+  });
+}
+
+function updateUI() {
+  const idx = state.selectedPot;
+  const pot = state.pots[idx];
+
+  document.getElementById('active-pot-ring').setAttribute('cx', POT_X_POSITIONS[idx]);
+
+  state.pots.forEach((p, i) => {
+    const tabEl = document.getElementById(`tab-pot-${i}`);
+    const subEl = document.getElementById(`tab-sub-${i}`);
+    tabEl.classList.toggle('active', i === idx);
+    if (p.plantId) {
+      const info = PLANTS_DB[p.plantId];
+      subEl.textContent = p.growth >= 100 ? `✨${info.shortName}` : `${info.shortName} ${Math.floor(p.growth)}%`;
+    } else {
+      subEl.textContent = '空き';
+    }
+  });
+
+  const nameEl = document.getElementById('plant-name');
+  const stageEl = document.getElementById('plant-stage');
+  const growthText = document.getElementById('growth-text');
+  const growthBar = document.getElementById('growth-bar');
+  const waterText = document.getElementById('water-text');
+  const waterBar = document.getElementById('water-bar');
+  const btnHarvest = document.getElementById('btn-harvest');
+
+  if (!pot.plantId) {
+    nameEl.textContent = `${POT_NAMES[idx]}：空の植木鉢`;
+    stageEl.textContent = '種をまこう';
+    growthText.textContent = '0.0%';
+    growthBar.style.width = '0%';
+    waterText.textContent = `${Math.round(pot.water)}%`;
+    waterBar.style.width = `${pot.water}%`;
+    btnHarvest.style.display = 'none';
+  } else {
+    const plant = PLANTS_DB[pot.plantId];
+    nameEl.textContent = `${POT_NAMES[idx]}：${plant.name}`;
+
+    if (pot.growth >= 100) { stageEl.textContent = '✨ 収穫可能！'; btnHarvest.style.display = 'flex'; }
+    else if (pot.growth >= 80) { stageEl.textContent = 'あと少し'; btnHarvest.style.display = 'none'; }
+    else if (pot.growth >= 45) { stageEl.textContent = '成長期'; btnHarvest.style.display = 'none'; }
+    else if (pot.growth >= 15) { stageEl.textContent = '若葉'; btnHarvest.style.display = 'none'; }
+    else { stageEl.textContent = '芽生え'; btnHarvest.style.display = 'none'; }
+
+    growthText.textContent = `${pot.growth.toFixed(1)}%`;
+    growthBar.style.width = `${pot.growth}%`;
+    waterText.textContent = `${Math.round(pot.water)}%`;
+    waterBar.style.width = `${pot.water}%`;
+  }
+
+  renderAllPlantsSVG();
+}
+
+function setMessage(text) {
+  document.getElementById('message-text').textContent = text;
+}
+
+document.getElementById('btn-water').addEventListener('click', () => {
+  const idx = state.selectedPot;
+  const pot = state.pots[idx];
+  pot.water = 100;
+  playWaterSound();
+
+  if (pot.plantId) {
+    const p = PLANTS_DB[pot.plantId];
+    setMessage(isMidnightHour(getNow())
+      ? `月明かりの下、${POT_NAMES[idx]}の「${p.name}」に水をあげた。葉が露を弾いている。`
+      : `${POT_NAMES[idx]}の「${p.name}」の土がしっとりとうるおった。`);
+  } else {
+    setMessage(`${POT_NAMES[idx]}の土を湿らせた。いつでも種をまける状態だ。`);
+  }
+  saveGame();
+  updateUI();
+});
+
+document.getElementById('btn-harvest').addEventListener('click', () => {
+  const idx = state.selectedPot;
+  const pot = state.pots[idx];
+  if (!pot.plantId || pot.growth < 100) return;
+
+  const p = PLANTS_DB[pot.plantId];
+  state.harvested[p.id] = (state.harvested[p.id] || 0) + 1;
+
+  setMessage(`✨ ${POT_NAMES[idx]}の「${p.name}」を収穫し、図鑑に記録した！`);
+  pot.plantId = null;
+  pot.growth = 0;
+  saveGame();
+  updateUI();
+});
+
+document.getElementById('btn-seed').addEventListener('click', () => {
+  document.getElementById('seed-modal-title').textContent = `🌱 ${POT_NAMES[state.selectedPot]}に植える種をえらぶ（全20種）`;
+  document.getElementById('modal-seed').classList.add('open');
+});
+
+document.getElementById('btn-book').addEventListener('click', () => {
+  renderBookList();
+  document.getElementById('modal-book').classList.add('open');
+});
+
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('open'));
+}
+
+function filterSeeds(category, btnEl) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  renderSeedList(category);
+}
+
+function renderSeedList(filterCategory) {
+  const container = document.getElementById('seed-list');
+  container.innerHTML = '';
+  Object.values(PLANTS_DB)
+    .filter(p => filterCategory === 'all' || p.category === filterCategory)
+    .forEach(plant => {
+      const div = document.createElement('div');
+      div.className = 'seed-item';
+      div.innerHTML = `
+        <div class="seed-info">
+          <h4><span class="category-tag">${plant.category}</span>${plant.name} <span style="font-size:0.74rem; color:#4ade80;">(${plant.daysLabel})</span></h4>
+          <p>${plant.desc}</p>
+        </div>
+        <button class="plant-select-btn" onclick="plantSeed('${plant.id}')">植える</button>
+      `;
+      container.appendChild(div);
+    });
+}
+
+function plantSeed(id) {
+  const idx = state.selectedPot;
+  state.pots[idx] = { plantId: id, growth: 2, water: 100 };
+  state.lastUpdate = getNow();
+  const p = PLANTS_DB[id];
+  setMessage(`${POT_NAMES[idx]}に「${p.name}」の種をまいた。${p.daysLabel}の予定だ。`);
+  saveGame();
+  updateUI();
+  closeModals();
+}
+
+function renderBookList() {
+  const container = document.getElementById('book-list');
+  container.innerHTML = '';
+
+  const plantList = Object.values(PLANTS_DB);
+  const unlockedPlants = plantList.filter(p => (state.harvested[p.id] || 0) > 0).length;
+
+  const plantHeader = document.createElement('h4');
+  plantHeader.style.cssText = 'margin: 0 0 8px; font-size:0.85rem; color:#4ade80;';
+  plantHeader.textContent = `🌿 育てた植物図鑑（${unlockedPlants} / ${plantList.length}種）`;
+  container.appendChild(plantHeader);
+
+  plantList.forEach(plant => {
+    const count = state.harvested[plant.id] || 0;
+    const unlocked = count > 0;
+    const div = document.createElement('div');
+    div.className = 'book-item';
+    div.innerHTML = `
+      <div class="seed-info">
+        <h4><span class="category-tag">${plant.category}</span>${unlocked ? plant.name : '？？？（未収穫の植物）'} <span style="font-size:0.74rem; color:#fbbf24;">${unlocked ? `収穫数: ${count}` : plant.daysLabel}</span></h4>
+        <p>${unlocked ? plant.teaNote : 'この植物を100%まで育てて収穫すると記録が解放されます。'}</p>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  const visitorList = Object.values(VISITORS_DB);
+  const unlockedVisitors = visitorList.filter(v => (state.visitorLog[v.id] || 0) > 0).length;
+  const visitorHeader = document.createElement('h4');
+  visitorHeader.style.cssText = 'margin: 14px 0 8px; font-size:0.85rem; color:#fde047;';
+  visitorHeader.textContent = `🌙 深夜24〜25時の来訪者メモ（${unlockedVisitors} / ${visitorList.length}種）`;
+  container.appendChild(visitorHeader);
+
+  visitorList.forEach(v => {
+    const count = state.visitorLog[v.id] || 0;
+    const unlocked = count > 0;
+    const div = document.createElement('div');
+    div.className = 'book-item';
+    div.innerHTML = `
+      <div class="seed-info">
+        <h4>${unlocked ? v.name : '？？？（深夜の来訪者）'} <span style="font-size:0.74rem; color:#38bdf8;">${unlocked ? `出会った回数: ${count}` : '24〜25時限定'}</span></h4>
+        <p>${unlocked ? v.rewardMsg : '深夜0時台にベランダを開くと、気まぐれに遊びに来ることがあります。'}</p>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+/* 環境音 */
+let audioCtx = null;
+let isSoundOn = false;
+let cricketTimer = null;
+
+document.getElementById('btn-sound').addEventListener('click', () => {
+  isSoundOn = !isSoundOn;
+  const btn = document.getElementById('btn-sound');
+  if (isSoundOn) { btn.textContent = '🔊'; startAmbientSound(); }
+  else { btn.textContent = '🔇'; stopAmbientSound(); }
+});
+
+function startAmbientSound() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  cricketTimer = setInterval(() => { if (isSoundOn) playCricketChirp(); }, 4200);
+  playCricketChirp();
+}
+
+function stopAmbientSound() { if (cricketTimer) clearInterval(cricketTimer); }
+
+function playCricketChirp() {
+  if (!audioCtx || !isSoundOn) return;
+  const now = audioCtx.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(4200, now + i * 0.18);
+    gain.gain.setValueAtTime(0.001, now + i * 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.018, now + i * 0.18 + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.18 + 0.14);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now + i * 0.18);
+    osc.stop(now + i * 0.18 + 0.15);
+  }
+}
+
+function playWaterSound() {
+  if (!audioCtx || !isSoundOn) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(320, now);
+  osc.frequency.exponentialRampToValueAtTime(680, now + 0.15);
+  gain.gain.setValueAtTime(0.05, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
+}
+
+function playMagicSound() {
+  if (!audioCtx || !isSoundOn) return;
+  const now = audioCtx.currentTime;
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, now + i * 0.08);
+    gain.gain.setValueAtTime(0.04, now + i * 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.08 + 0.35);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now + i * 0.08);
+    osc.stop(now + i * 0.08 + 0.36);
+  });
+}
+
+/* 管理者専用 */
+function toggleAdminPanel() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  const panel = document.getElementById('admin-panel');
+  const arrow = document.getElementById('debug-arrow');
+  const isOpen = panel.classList.toggle('open');
+  arrow.textContent = isOpen ? '▾' : '▸';
+}
+
+function updateDebugPill(text, isVirtual) {
+  const pill = document.getElementById('debug-offset-label');
+  pill.textContent = text;
+  pill.classList.toggle('virtual', isVirtual);
+}
+
+function debugSetMidnight() {
+  const realNow = new Date();
+  const target = new Date(realNow);
+  target.setHours(0, 15, 0, 0);
+  if (target.getTime() < realNow.getTime()) target.setDate(target.getDate() + 1);
+  debugTimeOffset = target.getTime() - Date.now();
+  state.lastUpdate = getNow();
+  updateDebugPill('仮想: 24:15', true);
+  updateClockAndAtmosphere();
+  setMessage('【テスト】時計を深夜24:15に合わせました。');
+}
+
+function debugSetDay() {
+  const realNow = new Date();
+  const target = new Date(realNow);
+  target.setHours(14, 0, 0, 0);
+  if (target.getTime() < realNow.getTime()) target.setDate(target.getDate() + 1);
+  debugTimeOffset = target.getTime() - Date.now();
+  state.lastUpdate = getNow();
+  updateDebugPill('仮想: 14:00', true);
+  updateClockAndAtmosphere();
+  activeVisitor = null;
+  renderVisitorSVG();
+  setMessage('【テスト】時計を昼の14:00に合わせました。');
+}
+
+function debugSpawnVisitor() {
+  const keys = Object.keys(VISITORS_DB);
+  const currentIdx = activeVisitor ? keys.indexOf(activeVisitor.id) : -1;
+  const nextKey = keys[(currentIdx + 1) % keys.length];
+  activeVisitor = VISITORS_DB[nextKey];
+  visitorInteracted = false;
+  renderVisitorSVG();
+  setMessage(`【テスト】${activeVisitor.greetMsg}`);
+}
+
+function debugAddHours(hours) {
+  debugTimeOffset += hours * 60 * 60 * 1000;
+  processElapsedTime();
+  updateClockAndAtmosphere();
+  updateUI();
+  saveGame();
+  setMessage(`【テスト】時間を ${hours}時間 進めました。`);
+}
+
+function debugResetTime() {
+  debugTimeOffset = 0;
+  state.lastUpdate = getNow();
+  updateDebugPill('実時間', false);
+  updateClockAndAtmosphere();
+  setMessage('時計を現実の時刻に戻しました。');
+}
+
+init();
+</script>
+</body>
+</html>
